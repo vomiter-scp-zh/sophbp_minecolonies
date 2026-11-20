@@ -1,0 +1,108 @@
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'org.spongepowered.mixin' version '0.7.+'
+    id 'com.vomiter.forge-base' version "0.1.0"
+    id 'com.vomiter.dev-runtime' version "0.1.0"
+    id 'com.vomiter.langmerge' version "0.1.0"
+}
+
+vomiterMod {
+    modId = mod_id
+    // 需要的話可以關掉某些功能
+    // enableMixinExtras = false
+    // enableDevJar = false
+}
+
+langMerge { modId = mod_id }
+
+version = mod_version
+group = mod_group_id
+base { archivesName = mod_id }
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+}
+
+minecraft {
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'info'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.debug.export', 'true'
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                    source sourceSets.test
+                }
+            }
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+            mods { "${mod_id}" { source sourceSets.main } }
+        }
+
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            mods { "${mod_id}" { source sourceSets.main } }
+        }
+
+        data {
+            workingDirectory project.file('run')
+            property 'mixin.env.disable',        'true'
+            property 'mixin.env.ignoreRequired', 'true'
+            property 'mixin.env.disableRefMap',  'true'
+
+            args '--mod', mod_id,
+                    '--all',
+                    '--output', file('src/generated/resources/'),
+                    '--existing', file('src/main/resources/')
+
+            mods { "${mod_id}" { source sourceSets.main } }
+        }
+    }
+}
+tasks.withType(JavaExec).configureEach {
+    standardInput = System.in
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    implementation fg.deobf("curse.maven:minecolonies-245506:${minecolonies_file}")
+    implementation fg.deobf("curse.maven:sophisticated-backpacks-422301:${backpacks_file}")
+    implementation fg.deobf("curse.maven:sophisticated-core-618298:${core_file}")
+    implementation fg.deobf("curse.maven:structurize-298744:9333929")
+    implementation fg.deobf("curse.maven:blockui-522992:6368392")
+    runtimeOnly fg.deobf("curse.maven:domum-ornamentum-527361:6688395")
+    runtimeOnly fg.deobf("curse.maven:multi-piston-303278:5204918")
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor' 
+}
+
+mixin {
+    add    sourceSets.main, "${mod_id}.mixins.refmap.json"
+    config "${mod_id}.mixins.json"
+    debug.verbose = true
+    debug.export  = true
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    inputs.property 'mod_version', mod_version
+    filesMatching('META-INF/mods.toml') { expand(mod_version: mod_version) }
+}
+tasks.named('jar', Jar).configure {
+    manifest.attributes('MixinConfigs': 'sophbp_minecolonies.mixins.json')
+    finalizedBy 'reobfJar'
+}
+tasks.named('check').configure { dependsOn 'runGameTestServer' }
