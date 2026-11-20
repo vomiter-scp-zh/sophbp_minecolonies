@@ -1,9 +1,8 @@
 package com.vomiter.sophbp_minecolonies;
 
 import net.minecraft.client.Minecraft;
-import net.p3pp3rf1y.sophisticatedbackpacks.api.CapabilityBackpackWrapper;
+import net.p3pp3rf1y.sophisticatedbackpacks.backpack.wrapper.BackpackWrapper;
 import net.p3pp3rf1y.sophisticatedbackpacks.util.PlayerInventoryProvider;
-import net.p3pp3rf1y.sophisticatedcore.api.IStorageWrapper;
 
 public class ModNetworkClientHandler {
     static void handleMBPSyncResponse(ModNetwork.MBPSyncResponse response){
@@ -11,9 +10,7 @@ public class ModNetworkClientHandler {
         PlayerInventoryProvider.get().runOnBackpacks(
                 Minecraft.getInstance().player,
                 ((backpack, s, s1, i) -> {
-                    backpack.getCapability(CapabilityBackpackWrapper.getCapabilityInstance()).ifPresent(
-                            IStorageWrapper::onContentsNbtUpdated
-                    );
+                    BackpackWrapper.fromStack(backpack).onContentsNbtUpdated();
                     return true;
         }));
     }

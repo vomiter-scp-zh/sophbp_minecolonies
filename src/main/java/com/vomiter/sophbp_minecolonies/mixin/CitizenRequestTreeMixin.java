@@ -9,7 +9,6 @@ import com.minecolonies.api.colony.requestsystem.request.RequestState;
 import com.minecolonies.api.colony.requestsystem.requestable.IDeliverable;
 import com.minecolonies.api.colony.requestsystem.requestable.IRequestable;
 import com.minecolonies.api.util.InventoryUtils;
-import com.minecolonies.core.Network;
 import com.minecolonies.core.client.gui.AbstractWindowSkeleton;
 import com.minecolonies.core.client.gui.modules.RequestTreeWindowModule;
 import com.minecolonies.core.network.messages.server.colony.UpdateRequestStateMessage;
@@ -19,9 +18,10 @@ import com.vomiter.sophbp_minecolonies.util.SophisticatedUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.wrapper.InvWrapper;
-import net.p3pp3rf1y.sophisticatedbackpacks.api.CapabilityBackpackWrapper;
+import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.wrapper.InvWrapper;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.p3pp3rf1y.sophisticatedbackpacks.backpack.wrapper.BackpackWrapper;
 import net.p3pp3rf1y.sophisticatedbackpacks.util.PlayerInventoryProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -94,17 +94,17 @@ public abstract class CitizenRequestTreeMixin  extends RequestTreeWindowModule {
                 slot,
                 amountToSend
         );
-        ModNetwork.CHANNEL.sendToServer(packet);
+        PacketDistributor.sendToServer(packet);
         var itemStack = request.getDisplayStacks().stream().findFirst().orElse(ItemStack.EMPTY);
         var updatePacket = new UpdateRequestStateMessage(colony, request.getId(), RequestState.OVERRULED, itemStack.copyWithCount( requestForBPTotal - requestForBP[0]));
-        Network.getNetwork().sendToServer(updatePacket);
+        updatePacket.sendToServer();
     }
 
 
 
 
     @WrapOperation(method = "isFulfillable", at = @At(value = "INVOKE", target =
-            "Lcom/minecolonies/api/util/InventoryUtils;hasItemInItemHandler(Lnet/minecraftforge/items/IItemHandler;Ljava/util/function/Predicate;)Z"))
+            "Lcom/minecolonies/api/util/InventoryUtils;hasItemInItemHandler(Lnet/neoforged/neoforge/items/IItemHandler;Ljava/util/function/Predicate;)Z"))
     private boolean sophbpMinecolonies$hasMaterials(@Nullable IItemHandler itemHandler, @NotNull Predicate<ItemStack> itemStackSelectionPredicate, Operation<Boolean> original) {
         if (original.call(itemHandler, itemStackSelectionPredicate)) return true;
         AtomicReference<Boolean> booleanRef = new AtomicReference<>(false);
@@ -123,19 +123,14 @@ public abstract class CitizenRequestTreeMixin  extends RequestTreeWindowModule {
                 backpackSlot
                 ) -> {
                     if (booleanRef.get()) return true;
-                    return backpack.getCapability(CapabilityBackpackWrapper.getCapabilityInstance())
-                            .map(wrapper -> {
-                                var inv = wrapper.getInventoryHandler();
-                                for (int i = 0; i < inv.getSlots(); i++) {
-                                    boolean match = itemStackSelectionPredicate.test(inv.getStackInSlot(i));
-                                    if (match) {
-                                        booleanRef.set(true);
-                                        return true;
-                                    }
-                                }
-                                return false;
-                            })
-                            .orElse(false);
+                    var inv = BackpackWrapper.fromStack(backpack).getInventoryHandler();
+                    for (int i = 0; i < inv.getSlots(); i++) {
+                        if (itemStackSelectionPredicate.test(inv.getStackInSlot(i))) {
+                            booleanRef.set(true);
+                            return true;
+                        }
+                    }
+                    return false;
                 }
         );
         return booleanRef.get();

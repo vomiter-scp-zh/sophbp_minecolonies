@@ -4,7 +4,8 @@ import com.vomiter.sophbp_minecolonies.ModNetwork;
 import net.minecraft.Util;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.p3pp3rf1y.sophisticatedbackpacks.api.CapabilityBackpackWrapper;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.p3pp3rf1y.sophisticatedbackpacks.backpack.wrapper.BackpackWrapper;
 import net.p3pp3rf1y.sophisticatedbackpacks.backpack.wrapper.IBackpackWrapper;
 import net.p3pp3rf1y.sophisticatedbackpacks.util.PlayerInventoryProvider;
 
@@ -39,12 +40,7 @@ public class SophisticatedUtil {
                          identifier,
                          backpackSlot
                         ) -> {
-                            return backpack.getCapability(CapabilityBackpackWrapper.getCapabilityInstance())
-                                    .map(
-                                            runnable::run
-                                    )
-                                    .orElse(false);
-
+                            return runnable.run(BackpackWrapper.fromStack(backpack));
                         });
     }
 
@@ -61,7 +57,7 @@ public class SophisticatedUtil {
 
         lastRequestTime = now;
         runOnBackpack(player, (backpackWrapper -> {
-            backpackWrapper.getContentsUuid().ifPresent(uuid -> ModNetwork.CHANNEL.sendToServer(new ModNetwork.MBPSyncRequest(uuid)));
+            backpackWrapper.getContentsUuid().ifPresent(uuid -> PacketDistributor.sendToServer(new ModNetwork.MBPSyncRequest(uuid)));
             return false;
         }));
     }
